@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Menu;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -24,11 +25,17 @@ class MenuController extends Controller
             $data = Menu::all();
             return Datatables::of($data)->addIndexColumn()
                 ->addColumn('image', function ($row) {
-                    $img = '<img src="'. asset("storage/images/menu/".$row->image).'" alt="'.$row->name.'" class="d-block rounded" height="100" width="100">';
+                    $img = '<img src="'. asset("storage/images/menu/".$row->image).'" alt="'.$row->name.'" class="img-fluid rounded" height="auto" width="auto">';
                     return $img;
                 })
                 ->addColumn('discount', function ($row) {
                     return $row->discount . ' %';
+                })
+                ->addColumn('price', function ($row) {
+                    return "Rp" .' '. number_format($row->price, 0, ',', '.') . '.-';
+                })
+                ->addColumn('total_price', function ($row) {
+                    return "Rp" .' '. number_format($row->total_price, 0, ',', '.') . '.-';
                 })
                 ->addColumn('status', function ($row) {
                     if ($row->status == true) {
@@ -40,9 +47,9 @@ class MenuController extends Controller
                 })
                 ->addColumn('action', function($row){
                     if ($row->status == true) {
-                        $status = "Deactive status";
+                        $status = 'Non-active';
                     }else{
-                        $status = "Activate status";
+                        $status = 'Activate';
                     }
 
                     $btn = 
@@ -51,7 +58,7 @@ class MenuController extends Controller
                         <i class="bx bx-dots-vertical-rounded"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" style="">
-                        <li><button class="dropdown-item edit-button" type="button" data-id="'. $row->id .'" data-bs-toggle="modal" data-bs-target="#editMenu">Edit</button>
+                        <li><a class="dropdown-item edit-button" href="menu/'.$row->id.'/edit">Edit</a>
                         <form action="menu/'.$row->id.'" method="POST">
                         '.csrf_field().'
                         '.method_field("DELETE").'
@@ -62,7 +69,7 @@ class MenuController extends Controller
                     </div>';
                     return $btn;
                 })
-                ->rawColumns(['action','image', 'discount','status'])
+                ->rawColumns(['action','image', 'discount','status', 'price', 'total_price'])
                 ->make(true);
         }
         confirmDelete('Delete Menu?', 'Are you sure you want to delete');
@@ -96,18 +103,22 @@ class MenuController extends Controller
             'price' => 'required',
             'type' => 'required',
         ]);
-        
+
         if ($request->hasFile('image')) {
             
+            $name = $request->menu_name;
+            $price = $request->price;
+            $type = $request->type;
+
             $image = $request->file('image');
             $extension = $image->getClientOriginalExtension();
             $img_name = $request->menu_name . '.' . $extension;
 
             if ($request->discount == 0 || null) {
-                $price = $request->price;
+                $total_price = $request->price;
                 $discount = 0;
             }else{
-                $price = $request->total_price;
+                $total_price = $request->total_price;
                 $discount = $request->discount;
             }
 
@@ -116,21 +127,24 @@ class MenuController extends Controller
             }else{
                 $status = $request->boolean('status');
             }
+            $path = $image->storeAs('public/images/menu', $img_name);
 
-            $results = Menu::create([
-                'name' => $request->menu_name,
-                'image' => $img_name,
-                'price' => $request->price,
-                'total_price' => $price,
-                'discount' => $discount,
-                'type' => $request->type,
-                'status' => $status
-            ]);
-            if ($results) {
-                $path = $image->storeAs('public/images/menu', $img_name);
-                return redirect()->back()->with('success', 'data insert successfully');
+            if ($path) {   
+                $results = Menu::create([
+                    'name' => $name,
+                    'image' => $img_name,
+                    'price' => $price,
+                    'total_price' => $total_price,
+                    'discount' => $discount,
+                    'type' => $type,
+                    'status' => $status
+                ]);
+                if ($results) {
+                    return redirect()->back()->with('success', 'data insert successfully');
+                }
+            }else{
+                return redirect()->back()->with('error', 'data insert unsuccessfully');
             }
-    
         }
     
         return response()->json(['error' => 'No image file found']);
@@ -157,7 +171,7 @@ class MenuController extends Controller
     public function edit($id)
     {
         $data = Menu::findOrFail($id);
-        return response()->json($data);
+        return view('menu.edit', compact('data'));
     }
 
     /**
@@ -169,7 +183,68 @@ class MenuController extends Controller
      */
     public function update(Request $request, Menu $menu)
     {
-        //
+        $request->validate([
+            'uploadNew' => 'image|mimes:jpg,jpeg,png,gif',
+            'menu_name' => 'required',
+        ]);
+
+        $name = $request->menu_name;    
+        $price = $request->price;
+        $total = $request->total_price;
+        $type = $request->type;
+        $discount = $request->discount;
+
+        if ($request->status == null) {
+            $status = 0;
+        }else{
+            $status = $request->boolean('status');
+        }
+
+        if ($request->optionDiscount == 'no') {
+            $discount = 0;
+        }else{
+            $discount = $request->discount;
+        }
+
+        if ($request->hasFile('uploadNew')) {
+            $image = $request->file('uploadNew');
+            $extension = $image->getClientOriginalExtension();
+
+            $img_name = $name .'.'. $extension;
+
+            $path = $image->storeAs('public/images/menu', $img_name);
+            if ($path) {
+                $removeImage = Storage::disk('public')->delete($menu->image);
+                $result = $menu->update([
+                    'name' => $name,
+                    'price' => $price,
+                    'discount' => $discount,
+                    'total_price' => $total,
+                    'image' => $img_name,
+                    'type' => $type,
+                    'status' => $status
+                ]); 
+                
+                if ($result) {
+                    toast('update data successfully', 'success');
+                    return redirect()->route('menu.index');
+                }
+            }  
+        }else{
+            $result = $menu->update([
+                'name' => $name,
+                'price' => $price,
+                'discount' => $discount,
+                'total_price' => $total,
+                'type' => $type,
+                'status' => $status
+            ]); 
+            
+            if ($result) {
+                toast('update data successfully', 'success');
+                return redirect()->route('menu.index');
+            }
+        }
     }
 
     /**

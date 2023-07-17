@@ -33,9 +33,11 @@
 @section('script')
     <script>
         $(function () {
+            $('#spinner').show();
             var table = $('#table').DataTable({
                 processing: true,
                 serverSide: true,
+                scrollX : true,
                 ajax: "{{ route('menu.index') }}",
                 columns: [
                     {data: 'image', name: 'image'},
@@ -72,6 +74,10 @@
         
                 if (value > 100) {
                     $(this).val(100);
+                }
+
+                if (value == null) {
+                    $(this).val(0);
                 }
 
                 var price = $('#price').val();
