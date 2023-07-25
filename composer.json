@@ -10,12 +10,14 @@
     "require": {
         "php": "^8.0.2",
         "arielmejiadev/larapex-charts": "^6.0",
+        "barryvdh/laravel-dompdf": "^2.0",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^9.19",
         "laravel/sanctum": "^3.0",
         "laravel/tinker": "^2.7",
         "laravel/ui": "^4.2",
         "league/flysystem": "^3.15",
+        "milon/barcode": "^10.0",
         "realrashid/sweet-alert": "^7.0",
         "yajra/laravel-datatables-oracle": "~9.0"
     },

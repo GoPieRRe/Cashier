@@ -140,10 +140,12 @@ class MenuController extends Controller
                     'status' => $status
                 ]);
                 if ($results) {
-                    return redirect()->back()->with('success', 'data insert successfully');
+                    toast('data insert successfully' ,'success');
+                    return redirect()->back();
                 }
             }else{
-                return redirect()->back()->with('error', 'data insert unsuccessfully');
+                toast('data insert unsuccessfully' ,'error');
+                return redirect()->back();
             }
         }
     
@@ -210,7 +212,7 @@ class MenuController extends Controller
             $image = $request->file('uploadNew');
             $extension = $image->getClientOriginalExtension();
 
-            $img_name = $name .'.'. $extension;
+            $img_name = $name. time() .'.'. $extension;
 
             $path = $image->storeAs('public/images/menu', $img_name);
             if ($path) {
